@@ -234,6 +234,7 @@ public class MainActivity extends AppCompatActivity {
                     mGenreRef.removeEventListener(mEventListener);
                 }
 
+                //お気に入り画面でfab操作用
                 FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
 
                 if(mGenre != 100) {
