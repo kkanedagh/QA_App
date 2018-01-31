@@ -41,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
     private ListView mListView;
     private ArrayList<Question> mQuestionArrayList;
     private QuestionsListAdapter mAdapter;
+    private ArrayList<String> mFavoriteList;
 
     private ChildEventListener mEventListener = new ChildEventListener() {
         @Override
@@ -71,9 +72,17 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
-            Question question = new Question(title, body, name, uid, dataSnapshot.getKey(), mGenre, bytes, answerArrayList);
-            mQuestionArrayList.add(question);
-            mAdapter.notifyDataSetChanged();
+            if(mGenre == 100) {
+                if (mFavoriteList.contains(dataSnapshot.getKey())) {
+                    Question question = new Question(title, body, name, uid, dataSnapshot.getKey(), mGenre, bytes, answerArrayList);
+                    mQuestionArrayList.add(question);
+                    mAdapter.notifyDataSetChanged();
+                }
+            } else {
+                Question question = new Question(title, body, name, uid, dataSnapshot.getKey(), mGenre, bytes, answerArrayList);
+                mQuestionArrayList.add(question);
+                mAdapter.notifyDataSetChanged();
+            }
         }
 
         @Override
@@ -119,6 +128,33 @@ public class MainActivity extends AppCompatActivity {
     };
     // --- ここまで追加する ---
 
+    private ChildEventListener mEventListener2 = new ChildEventListener() {
+        @Override
+        public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+            mFavoriteList.add(dataSnapshot.getKey());
+        }
+
+        @Override
+        public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+
+        }
+
+        @Override
+        public void onChildRemoved(DataSnapshot dataSnapshot) {
+
+        }
+
+        @Override
+        public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+        }
+
+        @Override
+        public void onCancelled(DatabaseError databaseError) {
+
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -159,18 +195,7 @@ public class MainActivity extends AppCompatActivity {
         drawer.addDrawerListener(toggle);
         toggle.syncState();
 
-//        // ログイン済みのユーザーを取得する
-//        final FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-
         final NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
-
-//        if(user == null) {
-//            // ログインしていなければお気に入りをドロワー画面から消去
-//            navigationView.getMenu().findItem(R.id.nav_favorite).setVisible(false);
-//        }
-
-
-
         navigationView.setNavigationItemSelectedListener(new NavigationView.OnNavigationItemSelectedListener() {
             @Override
             public boolean onNavigationItemSelected(MenuItem item) {
@@ -190,7 +215,7 @@ public class MainActivity extends AppCompatActivity {
                     mGenre = 4;
                 } else if (id == R.id.nav_favorite) {
                     mToolbar.setTitle("お気に入り");
-                    mGenre = 5;
+                    mGenre = 100;
                 }
 
                 DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
@@ -201,13 +226,37 @@ public class MainActivity extends AppCompatActivity {
                 mAdapter.setQuestionArrayList(mQuestionArrayList);
                 mListView.setAdapter(mAdapter);
 
+                //リストクリア
+                mFavoriteList.clear();
+
                 // 選択したジャンルにリスナーを登録する
                 if (mGenreRef != null) {
                     mGenreRef.removeEventListener(mEventListener);
                 }
-                mGenreRef = mDatabaseReference.child(Const.ContentsPATH).child(String.valueOf(mGenre));
-                mGenreRef.addChildEventListener(mEventListener);
-                return true;
+
+                FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+
+                if(mGenre != 100) {
+                    fab.setVisibility(View.VISIBLE);
+
+                    mGenreRef = mDatabaseReference.child(Const.ContentsPATH).child(String.valueOf(mGenre));
+                    mGenreRef.addChildEventListener(mEventListener);
+                    return true;
+                } else {
+                    fab.setVisibility(View.INVISIBLE);
+
+                    // ログイン済みのユーザーを取得する
+                    FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+                    //お気に入りの記事ID取得
+                    DatabaseReference mFavoriteRef = mDatabaseReference.child(Const.FavoritePATH).child(user.getUid());
+                    mFavoriteRef.addChildEventListener(mEventListener2);
+
+                    for(int i=0;i<4;i++) {
+                        mGenreRef = mDatabaseReference.child(Const.ContentsPATH).child(String.valueOf(i));
+                        mGenreRef.addChildEventListener(mEventListener);
+                    }
+                    return true;
+                }
             }
         });
 
@@ -219,6 +268,9 @@ public class MainActivity extends AppCompatActivity {
         mAdapter = new QuestionsListAdapter(this);
         mQuestionArrayList = new ArrayList<Question>();
         mAdapter.notifyDataSetChanged();
+
+        //　Favoriteをnew
+        mFavoriteList = new ArrayList<String>();
 
         mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -245,7 +297,29 @@ public class MainActivity extends AppCompatActivity {
             navigationView.getMenu().findItem(R.id.nav_favorite).setVisible(false);
         } else {
             navigationView.getMenu().findItem(R.id.nav_favorite).setVisible(true);
+
+            if(mGenre == 100) {
+                mFavoriteList.clear();
+                mQuestionArrayList.clear();
+                mAdapter.setQuestionArrayList(mQuestionArrayList);
+                mListView.setAdapter(mAdapter);
+
+                // 選択したジャンルにリスナーを登録する
+                if (mGenreRef != null) {
+                    mGenreRef.removeEventListener(mEventListener);
+                }
+
+                //お気に入りの記事ID取得
+                DatabaseReference mFavoriteRef = mDatabaseReference.child(Const.FavoritePATH).child(user.getUid());
+                mFavoriteRef.addChildEventListener(mEventListener2);
+
+                for (int i = 0; i < 4; i++) {
+                    mGenreRef = mDatabaseReference.child(Const.ContentsPATH).child(String.valueOf(i));
+                    mGenreRef.addChildEventListener(mEventListener);
+                }
+            }
         }
+
     }
 
     @Override
